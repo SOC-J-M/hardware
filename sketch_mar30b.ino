@@ -1,5 +1,7 @@
 #include <WiFiS3.h>
 
+String work_order = "abcd";
+
 const char ssid[] = "SpectrumSetup-7D";
 const char pass[] = "manygate969"; 
 
@@ -15,6 +17,7 @@ unsigned long previous_time = 0;
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
+  Serial1.begin(9600);
   delay(1000);
   Serial.println(ssid);
   Serial.println(pass);
@@ -39,7 +42,8 @@ void setup() {
 void sendRequest() {
   if(WiFi.status() == WL_CONNECTED) {
     if (client.connect("192.168.1.178", 5001)) {
-      client.println("GET /values HTTP/1.1");
+      // client.println("POST /dataQuery?time_stamp=2026-01-01&department=foo&work_center=foo&employee_id=foo&part_number=foo&quantity=2&work_order=foo&start_time=12:30:01&end_time=12:32:02&sequence_num=foo&progress=foo&setup_time=hello&die_set=foo&material_lot=foo&status_code=Paused&comments=random HTTP/1.1");
+      client.println("POST /dataQuery?quantity=5&work_order=really_random HTTP/1.1");
       client.println("Host: 10.0.0.59");
       client.println("Connection: close");
       client.println();
@@ -58,6 +62,22 @@ void sendRequest() {
   }
 }
 
+void scanOrder(){
+  String message = "";
+  bool scanned = false;
+  while (Serial1.available()) {
+    char readChar = Serial1.read();
+    message += readChar;
+    scanned = true;
+    delay(10);
+  }
+  if (scanned) {
+    work_order = message;
+    Serial.print(work_order);
+    Serial.println();
+  }
+}
+
 void loop() {
   unsigned long currentMillis = millis() - previous_time;
   // Button for counter
@@ -65,7 +85,6 @@ void loop() {
     // Increment counter and print
     delay(10);
     if (digitalRead(counterButtonPin) == LOW){
-      Serial.println("hello");
       buttonPressCounter++;
       //Serial.print("Button presses: ");
       //Serial.println(buttonPressCounter);
