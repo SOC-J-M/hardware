@@ -1,0 +1,43 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+// LCD initialization
+LiquidCrystal_I2C lcd(0x27, 20, 4);
+
+// Initialize a constant string for display
+const String status = "Status: Operational";
+const String workOrderStatus = "Work Order #:";
+
+unsigned long startTime;
+
+void setup() {
+  Serial.begin(9600); // Start the serial communication
+  lcd.init();         // Initialize the LCD
+  lcd.backlight();    // Turn on the backlight
+  updateLCD(status);  // Update display with initial status
+  
+  startTime = millis(); // Initialize start time for the timer
+}
+
+void updateLCD(const String& statusMessage) {
+  lcd.clear(); // Clear the display
+  lcd.setCursor(0, 0);
+  lcd.print(statusMessage); // Print the status message on the first line
+
+  lcd.setCursor(0, 1);
+  lcd.print("Timer: ");
+  
+  lcd.setCursor(0, 2);
+  lcd.print(workOrderStatus); // Print the work order status on the third line
+}
+
+void loop() {
+  unsigned long currentTime = millis();
+  unsigned long elapsedTime = (currentTime - startTime) / 1000; // Calculate elapsed time in seconds
+
+  // Update the timer display every second
+  lcd.setCursor(7, 1);
+  lcd.print(elapsedTime);
+  
+  delay(1000); // Delay to reduce the update rate of the loop
+}
