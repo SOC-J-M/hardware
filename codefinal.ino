@@ -37,7 +37,7 @@ WiFiClient client;
 int status = WL_IDLE_STATUS;
 
 // initialize button pin
-int counterButtonPin = 0;
+int counterPin = 5;
 
 // intialize LCD
 LiquidCrystal_I2C lcd(0x27, 20, 4);
@@ -48,6 +48,8 @@ const char pass[] = "manygate969";  // Password, if open network you can leave b
 void setup() {
   Serial.begin(9600);
   Serial1.begin(9600);
+
+  pinMode(counterPin, INPUT);
 
   lcd.init();         // Initialize the LCD
   lcd.backlight();    // Turn on the backlight
@@ -149,10 +151,66 @@ void validateScan() {
 }
 
 
+void formatTime() {
+  // calculate hours, minutes, and seconds
+  unsigned long totalSeconds = timeGlobal / 1000;
+  unsigned long hours = totalSeconds / 3600;
+  unsigned long minutes = (totalSeconds % 3600) / 60;
+  unsigned long seconds = totalSeconds % 60;
+  
+  // format the time as "HH:MM:SS"
+  formattedTime = "";
+  if (hours < 10) {
+    formattedTime += "0";
+  }
+  formattedTime += String(hours) + ":";
+  
+  if (minutes < 10) {
+    formattedTime += "0";
+  }
+  formattedTime += String(minutes) + ":";
+  
+  if (seconds < 10) {
+    formattedTime += "0";
+  }
+  formattedTime += String(seconds);
+  return formattedTime;
+}
+
+
+void updateLCD() {
+  lcd.clear();
+  
+  lcd.setCursor(0, 0);
+  lcd.print("Work Order: ");
+  lcd.print(workOrder);
+
+  lcd.setCursor(0, 1);
+  lcd.print("Time on job: ");
+  lcd.print(formatTime());
+  
+  lcd.setCursor(0, 2);
+  lcd.print("Status: ");
+  lcd.print(statusCode);
+}
+
 
 void loop() {
   validateScan();
-  // button counter [implement millis for debounce – we do not want to use delay anywhere in our implementation outside of setup]
-  // schedule push record
+
+  // check if record needs to be pushed
+  if ((cycleTime - timeGlobal) > pushTime) {
+    pushRecord();
+  }
+
+  // check for counter increment
+  if (digitalRead(counterPin) == HIGH) { // button has been pressed
+    while (digitalRead(counterPin) == HIGH); // debounce; will stay in this loop until the counter is de-pressed
+    // counter is back to LOW
+    currCount++;
+    break;
+  }
+
+  updateLCD();
   
 }
