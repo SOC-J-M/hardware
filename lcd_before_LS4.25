@@ -4,40 +4,80 @@
 // LCD initialization
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 
-// Initialize a constant string for display
-const String status = "Status: Operational";
-const String workOrderStatus = "Work Order #:";
+unsigned long previousMillis = 0;  // Stores the last time the display was updated
+const long interval = 1000;        // Interval at which to update the display (milliseconds)
+const int debounceDelay = 50;      // Debounce delay in milliseconds
 
-unsigned long startTime;
+int clickCounter = 0; // Counter for the limit switch clicks
 
 void setup() {
-  Serial.begin(9600); // Start the serial communication
-  lcd.init();         // Initialize the LCD
-  lcd.backlight();    // Turn on the backlight
-  updateLCD(status);  // Update display with initial status
-  
-  startTime = millis(); // Initialize start time for the timer
-}
+  Serial.begin(9600);
+  lcd.init();
+  lcd.backlight();
 
-void updateLCD(const String& statusMessage) {
-  lcd.clear(); // Clear the display
-  lcd.setCursor(0, 0);
-  lcd.print(statusMessage); // Print the status message on the first line
+  pinMode(2, INPUT_PULLUP);  // Configure digital pin 6 as an input with pull-up resistor
 
-  lcd.setCursor(0, 1);
-  lcd.print("Timer: ");
-  
-  lcd.setCursor(0, 2);
-  lcd.print(workOrderStatus); // Print the work order status on the third line
+  // Initial example display
+  displayInfo(123, 4, "Active", clickCounter);
 }
 
 void loop() {
-  unsigned long currentTime = millis();
-  unsigned long elapsedTime = (currentTime - startTime) / 1000; // Calculate elapsed time in seconds
+  unsigned long currentMillis = millis();
 
-  // Update the timer display every second
-  lcd.setCursor(7, 1);
-  lcd.print(elapsedTime);
-  
-  delay(1000); // Delay to reduce the update rate of the loop
+  // Read the state of the limit switch on pin 6
+  int limitSwitchState = digitalRead(6);
+
+  // If the limit switch is triggered (assuming LOW when pressed due to pull-up resistor)
+  if (limitSwitchState == LOW) {
+    // Increment click counter
+    clickCounter++;
+
+    // Update display with click counter
+    updateFourthLine(clickCounter);
+
+    // Delay to debounce the switch
+    delay(debounceDelay);
+  } else {
+    // Update the display every second
+    if (currentMillis - previousMillis >= interval) {
+      previousMillis = currentMillis;  // Save the last update time
+
+      // Example of updating the display with new values
+      static int timeElapsed = 123;
+      static int workOrderNumber = 4;
+      static String status = "Active";
+
+      displayInfo(timeElapsed, workOrderNumber, status, clickCounter);
+
+      // Update variables for demonstration
+      timeElapsed += 1; // Increment time elapsed for demonstration
+      status = (timeElapsed % 2 == 0) ? "Active" : "Paused"; // Toggle status for demonstration
+    }
+  }
+}
+
+void displayInfo(int timeElapsed, int workOrderNumber, String status, int clickCounter) {
+  lcd.clear(); // Clear the display before updating
+
+  lcd.setCursor(0, 0); // Set cursor to first line
+  lcd.print("Time Elapsed: ");
+  lcd.print(timeElapsed);
+
+  lcd.setCursor(0, 1); // Set cursor to second line
+  lcd.print("Work Order Number: ");
+  lcd.print(workOrderNumber);
+
+  lcd.setCursor(0, 2); // Set cursor to third line
+  lcd.print("Status: ");
+  lcd.print(status);
+
+  lcd.setCursor(0, 3); // Set cursor to fourth line
+  lcd.print("Clicks: ");
+  lcd.print(clickCounter);
+}
+
+void updateFourthLine(int value) {
+  lcd.setCursor(0, 3); // Set cursor to fourth line
+  lcd.print("Clicks: ");
+  lcd.print(value);
 }
