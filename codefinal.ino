@@ -2,35 +2,40 @@
 #include <LiquidCrystal_I2C.h>
 #include <ctype.h>
 
-// global time
-unsigned long timeGlobal = 0
+// prev time
+unsigned long prevTime = 0;
 // cycle time
-unsigned long cycleTime = millis()
-unsigned long pushTime = 10000
+unsigned long currTime = 0;
+// push to record time (10 sec)
+unsigned long pushTime = 20000;
 // previous count
-unsigned long prevCount = 0
+unsigned long prevCount = 0;
 // current count
-unsigned long currCount = 0
+unsigned long currCount = 0;
 // work order
-String workOrder = "Awaiting Order..."
+String workOrder = "Awaiting Order...";
+// part number
+String partNumber = "0";
 // status
-int statusCode = 0
+String statusCode = "0";
 // reporting node
-String reportingNode = "Arduino 1"
+String reportingNode = "Arduino_1";
+// department
+String department = "dept";
 // work center location
-String centerLocation = "ASSY_1"
+String centerLocation = "ASSY_1";
 // employee id (initialized to null)
-String employeeId = "null"
+String employeeId = "null";
 // sequence (initialized to null)
-String sequence = "null"
+String sequence = "null";
 // order completion status
-String orderStatus = "PARTIAL"
+String orderStatus = "PARTIAL";
 // setup duration time (default to 0)
-unsigned long setupDuration = 0
+unsigned long setupTime = 0;
 // DIE SET #
-String dieSet = "null"
+String dieSet = "null";
 // material lot #
-String materialLot = "null"
+String materialLot = "null";
 
 // initialize wifi attributes
 WiFiClient client;
@@ -54,6 +59,7 @@ void setup() {
   lcd.init();         // Initialize the LCD
   lcd.backlight();    // Turn on the backlight
 
+
   while (status != WL_CONNECTED) {
     Serial.print("Attempting to connect to SSID: ");
     Serial.println(ssid);
@@ -65,14 +71,17 @@ void setup() {
     // wait 10 seconds for connection:
     delay(500);
   }
-
-  // display awaiting work order
-  while (work_order == "Awaiting Order..."){
-    Serial.print(work_order);
-    setupScan();
-    delay(1000);
-  }
   
+  Serial.println(workOrder);
+  // display awaiting work order
+  while (workOrder == "Awaiting Order..."){
+    setupScan(); 
+  }
+
+  setupScan();
+  Serial.println(workOrder);
+  updateLCD();
+  setupTime = millis();
 }
 
 // scan function only used in the initial setup of the arduino
@@ -81,8 +90,8 @@ void setup() {
 void setupScan(){
   if (Serial1.available()){
     String scannedOrder = Serial1.readString();
-    if (isDigit(scannedMessage.charAt(0))){
-      workOrder = scannedOrder;
+    if (isDigit(scannedOrder.charAt(0))){
+      workOrder = scannedOrder.substring(0, scannedOrder.length() - 1);
     }
   }
 }
@@ -92,15 +101,20 @@ void pushRecord() {
   // calculate how many parts were created in this cycle (current - previous)
   // client.println("POST ...")
   // set previous = current
-  int partsMade = currCount - prevCount;
-  
+  Serial.println("Entered PushRecord()");
+  String partsMade = String(currCount - prevCount);
+  //prevTime = currTime;
   //USE CODE FROM THE PREVIOUS IMPLEMENTATION
   // display "Record Pushed"
   if(WiFi.status() == WL_CONNECTED) {
-    if (client.connect("192.168.1.178", 5001)) {
+    if (client.connect("192.168.1.178", 5001)) { 
       // MODIFY THE QUERY BELOW TO PUSH ALL FIELDS IN DB
-      // client.println("POST /dataQuery?quantity=" + String(buttonPressCounter) + "&work_order=" + String(work_order) + " HTTP/1.1");
-      client.println("Host: 10.0.0.59");
+      String cycleTime = String(currTime - prevTime);
+      Serial.println(cycleTime);
+      String testRecord = "POST /dataQuery?department=" + department + "&work_center=" + centerLocation + "&employee_id=" + employeeId + "&part_number=" + partNumber + "&quantity=" + partsMade + "&work_order="+ workOrder + "&sequence_num=" + sequence + "&progress=" + orderStatus + "&setup_time=" + String(setupTime) + "&die_set=" + dieSet + "&material_lot=" + materialLot + "&status_code=" + statusCode + "&comments=random&reporting_node=" + reportingNode + "&elapsed_time=" + cycleTime + " HTTP/1.1";
+      //String record = “POST /dataQuery?department=” + department + “&work_center=”+ centerLocation + “&employee_id=” + employeeId + “&part_number=” + partNumber + “&quantity=” + partsMade + “&work_order=helowork” + “&sequence_num=” + sequence + “&progress=” + orderStatus + “&setup_time=” + String(setupTime) + “&die_set=” dieSet + “&material_lot=” + materialLot + “&status_code=” + statusCode + “&comments=none&reporting_node=” + reportingNode + “&elapsedTime=” + cycleTime + “ HTTP/1.1”;
+      client.println(testRecord);
+      //client.println("Host: 10.0.0.59");
       client.println("Connection: close");
       client.println();
       // for debugging
@@ -111,7 +125,7 @@ void pushRecord() {
       }
       client.stop();
       // reset cycle time to 0
-      timeGlobal = cycleTime;
+      prevTime = currTime;
       // reset quantities
       prevCount = currCount;
     } else {
@@ -127,6 +141,7 @@ void pushRecord() {
 // once something is scanned
 // this function assumes that whatever is scanned is either an error code or a status code
 void validateScan() {
+  //Serial.println("validateScan");
   // Serial.read() OR WE CAN PASS THIS IN FROM LOOP
   if (Serial1.available()){
     String scannedMessage = Serial1.readString();
@@ -151,15 +166,15 @@ void validateScan() {
 }
 
 
-void formatTime() {
+String formatTime() {
   // calculate hours, minutes, and seconds
-  unsigned long totalSeconds = timeGlobal / 1000;
+  unsigned long totalSeconds = (currTime - setupTime) / 1000;
   unsigned long hours = totalSeconds / 3600;
   unsigned long minutes = (totalSeconds % 3600) / 60;
   unsigned long seconds = totalSeconds % 60;
   
   // format the time as "HH:MM:SS"
-  formattedTime = "";
+  String formattedTime = "";
   if (hours < 10) {
     formattedTime += "0";
   }
@@ -179,14 +194,15 @@ void formatTime() {
 
 
 void updateLCD() {
+  //Serial.println("updateLCD");
   lcd.clear();
   
   lcd.setCursor(0, 0);
-  lcd.print("Work Order: ");
+  lcd.print("WO: ");
   lcd.print(workOrder);
 
   lcd.setCursor(0, 1);
-  lcd.print("Time on job: ");
+  lcd.print("Elapsed: ");
   lcd.print(formatTime());
   
   lcd.setCursor(0, 2);
@@ -196,10 +212,12 @@ void updateLCD() {
 
 
 void loop() {
+  updateLCD();
   validateScan();
+  currTime = millis();
 
   // check if record needs to be pushed
-  if ((cycleTime - timeGlobal) > pushTime) {
+  if ((currTime - prevTime) > pushTime) {
     pushRecord();
   }
 
@@ -208,9 +226,11 @@ void loop() {
     while (digitalRead(counterPin) == HIGH); // debounce; will stay in this loop until the counter is de-pressed
     // counter is back to LOW
     currCount++;
-    break;
+    Serial.println(currCount);
   }
 
-  updateLCD();
+  
+
+  
   
 }
