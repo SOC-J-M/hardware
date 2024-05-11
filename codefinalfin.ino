@@ -6,7 +6,9 @@ unsigned long prevTime = 0;               // pointer to current cycle start time
 unsigned long currTime = 0;               // updated to millis() in loop
 unsigned long setupTime = 0;              // pointer to start time of work order
 String formattedTime = "---";             // format HH:MM:SS
-unsigned long pushTime = 10000;           // push a record every 20 sec
+unsigned long pushTime = 600000;          // push a record every 10 min
+int debounceDelay = 1000;                  // debounce for recording button presses
+unsigned long lastCounterTime = 0;        // pointer to last count made (for debounce)
 unsigned long prevCount = 0;              // pointer to counter at current cycle start time
 unsigned long currCount = 0;              // current overall count
 
@@ -83,7 +85,7 @@ void loop() {
     updateLCD();
   }
 
-  // check if new scan on serial AND is connected to API
+  // check if new scan on serial
   if (Serial1.available()) {
     validateScan();
   }
@@ -95,15 +97,16 @@ void loop() {
 
   // check for counter increment
   if (digitalRead(counterPin) == HIGH) { // button has been pressed
-    while (digitalRead(counterPin) == HIGH); // debounce; will stay in this loop until the counter is de-pressed
-    // counter is back to LOW
-    currCount++;
+    if ((currTime - lastCounterTime) > debounceDelay) { // check for debounce
+      currCount++;
+      lastCounterTime = currTime;
+      Serial.println(currCount);
+    }
   }
 }
 
 void pushRecord() {
   if (client.connect(serverIP, serverPort)) {   // connect to API
-    //Serial.println("Connected to " + String(serverIP) + ":" + String(serverPort));
     partsMade = String(currCount - prevCount); // get quantity made in current cycle
     cycleTime = String(currTime - prevTime); // get current time in cycle
 
@@ -145,7 +148,9 @@ void validateScan() {
     workOrder = scanned;                      // set new work order variables
     orderStatus = "PARTIAL";                 
     statusCode = "NORMAL";                    
-    setupTime = millis();                     
+    setupTime = millis();
+    prevCount = 0;
+    currCount = 0;
   } else if (scanned.startsWith("status")) {  // check if status
     pushRecord();                             // push the last record
     statusCode = scanned.substring(6);        // update status code
